@@ -35,14 +35,13 @@ class PemakaianDanaController extends Controller
         return view('pages.pemakaiandanas.index', compact('pemakaians'));
     }
 
-
-
     public function create()
     {
-        $danas = Dana::with(['kegiatan', 'subkegiatan'])
+        $danas = Dana::with(['subkegiatan', 'rekbelanja']) // Hapus 'kegiatan'
                     ->where('available', 1)
                     ->get();
-                    $rekbelanjas = Rekbelanja::all();
+
+        $rekbelanjas = Rekbelanja::all();
 
         return view('pages.pemakaiandanas.create', compact('danas', 'rekbelanjas'));
     }

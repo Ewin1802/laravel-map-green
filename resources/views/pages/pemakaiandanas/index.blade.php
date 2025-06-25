@@ -60,8 +60,8 @@
                                                 <th>No. Bukti</th>
                                                 <th>Tanggal Bukti</th>
                                                 <th>Subkegiatan</th>
+                                                <th>Deskripsi Belanja</th> {{-- Ganti dari jenis belanja --}}
                                                 <th>Uraian</th>
-                                                <th>Jenis Belanja</th> {{-- Tambahan --}}
                                                 <th>Jumlah Pemakaian</th>
                                                 <th>File Bukti</th>
                                                 <th>Aksi</th>
@@ -72,11 +72,10 @@
                                             @forelse ($pemakaians as $pemakaian)
                                                 <tr>
                                                     <td style="white-space: normal; word-break: break-word;">{{ $pemakaian->no_bukti }}</td>
-
                                                     <td>{{ \Carbon\Carbon::parse($pemakaian->tgl_bukti)->format('d-m-Y') }}</td>
                                                     <td>{{ $pemakaian->dana->subkegiatan->desk_subkegiatan ?? '-' }}</td>
+                                                    <td>{{ $pemakaian->desk_belanja ?? '-' }}</td> {{-- Ganti dari jenis belanja --}}
                                                     <td>{{ $pemakaian->uraian }}</td>
-                                                    <td>{{ $pemakaian->jenis_belanja ?? '-' }}</td> {{-- Tambahan --}}
                                                     <td>Rp{{ number_format($pemakaian->jumlah_pemakaian, 0, ',', '.') }}</td>
                                                     <td>
                                                         @if ($pemakaian->file_bukti)
@@ -90,7 +89,6 @@
                                                             <a href="{{ route('pemakaiandanas.edit', $pemakaian->id) }}" class="btn btn-sm btn-info btn-icon">
                                                                 <i class="fas fa-edit"></i> Edit
                                                             </a>
-
                                                             <form action="{{ route('pemakaiandanas.destroy', $pemakaian->id) }}" method="POST" class="ml-2">
                                                                 @csrf
                                                                 @method('DELETE')
@@ -107,9 +105,9 @@
                                                 </tr>
                                             @endforelse
                                         </tbody>
-
                                     </table>
                                 </div>
+
 
                                 <div class="float-right">
                                     {{ $pemakaians->withQueryString()->links() }}

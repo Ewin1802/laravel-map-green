@@ -41,9 +41,29 @@ class DatabaseSeeder extends Seeder
             'sumber_dana' => 'DAK (Dana Alokasi Khusus)',
         ]);
 
+        \App\Models\Organisasi::create([
+            'kode_organisasi' => '4.01.0.00.0.00.01.0000',
+            'desk_organisasi' => 'Sekretariat Daerah',
+        ]);
+
         \App\Models\Program::create([
-            'kode_program' => '4.01.01.2.12',
+            'kode_program' => '4.01.01',
             'desk_program' => 'Program Penunjang Urusan Pemerintahan Daerah Kabupaten/Kota',
+        ]);
+
+        \App\Models\Program::create([
+            'kode_program' => '4.01.02',
+            'desk_program' => 'Program Pemerintahan dan Kesejahteraan Rakyat',
+        ]);
+
+        \App\Models\Kegiatan::create([
+            'kode_kegiatan' => '4.01.01.2.14',
+            'desk_kegiatan' => 'Pelaksanaan Protokol dan Komunikasi Pimpinan',
+        ]);
+
+        \App\Models\Kegiatan::create([
+            'kode_kegiatan' => '4.01.02.2.04',
+            'desk_kegiatan' => 'Fasilitasi Kerja Sama Daerah',
         ]);
 
         \App\Models\Kegiatan::create([
@@ -51,24 +71,19 @@ class DatabaseSeeder extends Seeder
             'desk_kegiatan' => 'Fasilitasi Kerumahtanggaan Sekretariat Daerah',
         ]);
 
-        \App\Models\Kegiatan::create([
-            'kode_kegiatan' => '4.01.01.2.11',
-            'desk_kegiatan' => 'Administrasi Keuangan dan Operasional Kepala Daerah dan Wakil Kepala Daerah',
-        ]);
-
-        \App\Models\Organisasi::create([
-            'kode_organisasi' => '4.01.0.00.0.00.01.0000',
-            'desk_organisasi' => 'Sekretariat Daerah',
+        \App\Models\Subkegiatan::create([
+            'kode_subkegiatan' => '4.01.01.2.14.0002',
+            'desk_subkegiatan' => 'Fasilitasi Komunikasi Pimpinan',
         ]);
 
         \App\Models\Subkegiatan::create([
-            'kode_subkegiatan' => '4.01.01.2.11.0002',
-            'desk_subkegiatan' => 'Penyediaan Pakaian Dinas dan Atribut Kelengkapan Kepala Daerah dan Wakil Kepala Daerah',
+            'kode_subkegiatan' => '4.01.02.2.04.0001',
+            'desk_subkegiatan' => 'Fasilitasi Kerja Sama Dalam Negeri',
         ]);
 
         \App\Models\Subkegiatan::create([
-            'kode_subkegiatan' => '4.01.01.2.12.0003',
-            'desk_subkegiatan' => 'Penyediaan Kebutuhan Rumah Tangga  Sekretariat Daerah',
+            'kode_subkegiatan' => '4.01.01.2.12.0002',
+            'desk_subkegiatan' => 'Penyediaan Kebutuhan Rumah Tangga Wakil Kepala Daerah',
         ]);
 
         \App\Models\Rekbelanja::create([
@@ -80,7 +95,7 @@ class DatabaseSeeder extends Seeder
         \App\Models\Rekbelanja::create([
             'kode_rek' => '5.1.02.04.01.0001',
             'desk_belanja' => 'Belanja Perjalanan Dinas Biasa',
-            'jenis_belanja' => 'Jasa/Habis Pakai',
+            'jenis_belanja' => 'Jasa',
         ]);
     }
 }

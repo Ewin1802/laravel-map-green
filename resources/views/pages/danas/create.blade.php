@@ -19,7 +19,6 @@
             </div>
 
             <div class="section-body">
-
                 <div class="card">
                     <form action="{{ route('danas.store') }}" method="POST">
                         @csrf
@@ -102,13 +101,29 @@
                             </div>
 
                             <div class="form-group">
+                                <label>Rekening Belanja</label>
+                                <select name="rekbelanja_id" class="form-control select2 @error('rekbelanja_id') is-invalid @enderror">
+                                    <option value="">Pilih Rekening Belanja</option>
+                                    @foreach ($rekbelanjas as $rek)
+                                        <option value="{{ $rek->id }}">
+                                            {{ $rek->kode_rek }} - {{ $rek->desk_belanja }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                @error('rekbelanja_id')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+
+                            <div class="form-group">
                                 <label>Keterangan</label>
                                 <textarea name="ket" class="form-control @error('ket') is-invalid @enderror" rows="3" placeholder="Tambahkan keterangan jika perlu">{{ old('ket') }}</textarea>
                                 @error('ket')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
                             </div>
-                            
+
                         </div>
                         <div class="card-footer text-right">
                             <button class="btn btn-primary">Submit</button>

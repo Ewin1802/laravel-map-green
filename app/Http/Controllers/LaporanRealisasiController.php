@@ -29,48 +29,16 @@ class LaporanRealisasiController extends Controller
         return view('pages.laporanrealisasis.index', compact('danas'));
     }
 
-
-
-    // public function print()
-    // {
-    //     $danas = Dana::with(['pemakaianDanas', 'subkegiatan'])
-    //         ->orderBy('id', 'desc')
-    //         ->get();
-
-    //     // Hitung total belanja berdasarkan jenis
-    //     $totalBelanjaModal = 0;
-    //     $totalBelanjaJasa = 0;
-
-    //     foreach ($danas as $dana) {
-    //         foreach ($dana->pemakaianDanas as $pemakaian) {
-    //             if ($pemakaian->jenis_belanja === 'Modal') {
-    //                 $totalBelanjaModal += $pemakaian->jumlah_pemakaian;
-    //             } elseif ($pemakaian->jenis_belanja === 'Jasa/Habis Pakai') {
-    //                 $totalBelanjaJasa += $pemakaian->jumlah_pemakaian;
-    //             }
-    //         }
-    //     }
-
-    //     // BARU setelah loop, hitung total keseluruhan
-    //     $totalBelanjaKeseluruhan = $totalBelanjaModal + $totalBelanjaJasa;
-
-    //     // $pdf = PDF::loadView('pages.laporanrealisasis.print', compact('danas', 'totalBelanjaModal', 'totalBelanjaJasa', 'totalBelanjaKeseluruhan'))
-    //     //         ->setPaper('a4', 'landscape');
-    //     $pdf = PDF::loadView('pages.laporanrealisasis.print', compact('danas', 'totalBelanjaModal', 'totalBelanjaJasa', 'totalBelanjaKeseluruhan'))
-    //       ->setPaper([0, 0, 594.28, 877.74], 'landscape');
-
-
-    //     return $pdf->stream('laporan-realisasi.pdf');
-    // }
-
     public function print()
     {
-        $danas = Dana::with(['pemakaianDanas', 'subkegiatan'])
+        // Ambil data dana dengan relasi ke pemakaian_danas dan subkegiatan
+        $danas = Dana::with(['pemakaianDanas', 'subkegiatan', 'rekbelanja']) // ← tambah relasi rekbelanja
             ->get()
-            ->sortBy(function($item) {
+            ->sortBy(function ($item) {
                 return $item->subkegiatan->kode_subkegiatan ?? '';
             });
 
+        // Rekap jenis belanja
         $totalBelanjaModal = 0;
         $totalBelanjaJasa = 0;
         $totalKegiatanModal = 0;
@@ -81,7 +49,7 @@ class LaporanRealisasiController extends Controller
                 if ($pemakaian->jenis_belanja === 'Modal') {
                     $totalBelanjaModal += $pemakaian->jumlah_pemakaian;
                     $totalKegiatanModal++;
-                } elseif ($pemakaian->jenis_belanja === 'Jasa/Habis Pakai') {
+                } elseif ($pemakaian->jenis_belanja === 'Jasa/Habis Pakai' || $pemakaian->jenis_belanja === 'Jasa') {
                     $totalBelanjaJasa += $pemakaian->jumlah_pemakaian;
                     $totalKegiatanJasa++;
                 }
@@ -90,22 +58,37 @@ class LaporanRealisasiController extends Controller
 
         $totalBelanjaKeseluruhan = $totalBelanjaModal + $totalBelanjaJasa;
 
-        $pdf = PDF::loadView('pages.laporanrealisasis.print', compact(
+        // Rekap berdasarkan data_id
+        $rekapPerDataId = [];
+
+        foreach ($danas as $dana) {
+            $dataId = $dana->data_id;
+            $totalPemakaian = $dana->pemakaianDanas->sum('jumlah_pemakaian');
+            $totalAnggaran = $dana->jumlah_dana + $totalPemakaian;
+
+            if (!isset($rekapPerDataId[$dataId])) {
+                $rekapPerDataId[$dataId] = [
+                    'rek_belanja' => $dana->rek_belanja,
+                    'desk_belanja' => $dana->desk_belanja,
+                    'jumlah' => 0,
+                    'kegiatan' => 0,
+                ];
+            }
+
+            $rekapPerDataId[$dataId]['jumlah'] += $totalAnggaran;
+            $rekapPerDataId[$dataId]['kegiatan'] += 1;
+        }
+
+        // Kirim data ke view
+        return PDF::loadView('pages.laporanrealisasis.print', compact(
             'danas',
             'totalBelanjaModal',
             'totalBelanjaJasa',
             'totalBelanjaKeseluruhan',
             'totalKegiatanModal',
-            'totalKegiatanJasa'
-        ))->setPaper([0, 0, 595.276, 877.953], 'landscape');
-
-        return $pdf->stream('laporan-realisasi.pdf');
+            'totalKegiatanJasa',
+            'rekapPerDataId' // <- kirim rekap berdasarkan data_id
+        ))->setPaper([0, 0, 595.276, 877.953], 'landscape')
+        ->stream('laporan-realisasi.pdf');
     }
-
-
-
-
-
-
-
 }

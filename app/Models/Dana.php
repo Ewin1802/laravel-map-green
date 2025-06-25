@@ -14,6 +14,7 @@ class Dana extends Model
         'subkegiatan_id',
         'organisasi_id',
         'sumberdana_id',
+        'rekbelanja_id',
         'jumlah_dana',
         'available',
         'user_name',

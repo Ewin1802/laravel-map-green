@@ -9,6 +9,7 @@ use App\Models\Kegiatan;
 use App\Models\Subkegiatan;
 use App\Models\Organisasi;
 use App\Models\Sumberdana;
+use App\Models\Rekbelanja;
 use Illuminate\Support\Facades\Auth;
 
 class DanaController extends Controller
@@ -47,6 +48,7 @@ class DanaController extends Controller
             'subkegiatans' => Subkegiatan::all(),
             'organisasis' => Organisasi::all(),
             'sumberdanas' => Sumberdana::all(),
+            'rekbelanjas' => Rekbelanja::all(),
         ]);
     }
 
@@ -61,11 +63,11 @@ class DanaController extends Controller
             'subkegiatans' => Subkegiatan::all(),
             'organisasis' => Organisasi::all(),
             'sumberdanas' => Sumberdana::all(),
+            'rekbelanjas' => Rekbelanja::all(),
             'dana_asals' => Dana::where('id', '!=', $id)->get(), // agar tidak memilih diri sendiri
             // 'dana_asals' => Dana::where('id', '!=', $id)->with('program')->get()
         ]);
     }
-
 
     public function store(Request $request)
     {
@@ -75,6 +77,7 @@ class DanaController extends Controller
             'subkegiatan_id' => 'required|exists:subkegiatans,id',
             'organisasi_id' => 'required|exists:organisasis,id',
             'sumberdana_id' => 'required|exists:sumberdanas,id',
+            'rekbelanja_id' => 'required|exists:rekbelanjas,id', // ✅ validasi ditambahkan
             'dana_asal_id' => 'nullable|exists:danas,id',
         ]);
 
@@ -109,6 +112,7 @@ class DanaController extends Controller
                 'subkegiatan_id' => $request->subkegiatan_id,
                 'organisasi_id' => $request->organisasi_id,
                 'sumberdana_id' => $request->sumberdana_id,
+                'rekbelanja_id' => $request->rekbelanja_id, // ✅ disimpan
                 'jumlah_dana' => $jumlahPemakaian,
                 'dana_asal_id' => $request->dana_asal_id,
                 'available' => 1,
@@ -128,13 +132,14 @@ class DanaController extends Controller
                 'subkegiatan_id' => $request->subkegiatan_id,
                 'organisasi_id' => $request->organisasi_id,
                 'sumberdana_id' => $request->sumberdana_id,
+                'rekbelanja_id' => $request->rekbelanja_id, // ✅ disimpan
                 'jumlah_dana' => $request->jumlah_dana,
                 'available' => 1,
                 'user_name' => $user->name,
                 'user_unit' => $user->unit,
                 'thn_anggaran' => $thnAnggaran,
                 'ket' => $request->ket,
-                'dana_asal_id' => null, // opsional, Laravel default null
+                'dana_asal_id' => null,
             ]);
         }
 
@@ -147,6 +152,24 @@ class DanaController extends Controller
         return response()->json($dana);
     }
 
+    // public function update(Request $request, $id)
+    // {
+    //     $dana = Dana::findOrFail($id);
+
+    //     $request->validate([
+    //         'program_id' => 'sometimes|exists:programs,id',
+    //         'kegiatan_id' => 'sometimes|exists:kegiatans,id',
+    //         'subkegiatan_id' => 'sometimes|exists:subkegiatans,id',
+    //         'organisasi_id' => 'sometimes|exists:organisasis,id',
+    //         'sumberdana_id' => 'sometimes|exists:sumberdanas,id',
+
+    //         'jumlah_dana' => 'sometimes|numeric|min:0',
+    //     ]);
+
+    //     $dana->update($request->all());
+    //     return redirect()->route('danas.index')->with('success', 'Anggaran berhasil diperbarui.');
+    // }
+
     public function update(Request $request, $id)
     {
         $dana = Dana::findOrFail($id);
@@ -157,21 +180,34 @@ class DanaController extends Controller
             'subkegiatan_id' => 'sometimes|exists:subkegiatans,id',
             'organisasi_id' => 'sometimes|exists:organisasis,id',
             'sumberdana_id' => 'sometimes|exists:sumberdanas,id',
+            'rekbelanja_id' => 'sometimes|exists:rekbelanjas,id', // ✅ Tambahkan validasi ini
             'jumlah_dana' => 'sometimes|numeric|min:0',
+            'ket' => 'nullable|string',
+            'available' => 'sometimes|boolean',
         ]);
 
-        $dana->update($request->all());
+        // Pastikan hanya field yang diperbolehkan yang diambil
+        $data = $request->only([
+            'program_id',
+            'kegiatan_id',
+            'subkegiatan_id',
+            'organisasi_id',
+            'sumberdana_id',
+            'rekbelanja_id', // ✅ Tambahkan ini
+            'jumlah_dana',
+            'ket',
+            'available',
+        ]);
+
+        // Hilangkan titik dari jumlah dana jika dari inputan format rupiah
+        if (isset($data['jumlah_dana'])) {
+            $data['jumlah_dana'] = str_replace('.', '', $data['jumlah_dana']);
+        }
+
+        $dana->update($data);
+
         return redirect()->route('danas.index')->with('success', 'Anggaran berhasil diperbarui.');
     }
-
-    // public function destroy($id)
-    // {
-    //     $dana = Dana::findOrFail($id);
-    //     $dana->delete();
-
-    //     // return response()->json(['message' => 'Dana berhasil dihapus']);
-    //     return redirect()->route('danas.index')->with('success', 'Dana berhasil dihapus.');
-    // }
 
     public function destroy($id)
     {

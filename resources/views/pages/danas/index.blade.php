@@ -58,9 +58,8 @@
                                     <table class="table-striped table">
                                         <thead>
                                             <tr>
-                                                <th>Kegiatan</th>
                                                 <th>Subkegiatan</th>
-                                                <th>Sumber Dana</th>
+                                                <th>Rek Belanja</th> {{-- Kolom baru --}}
                                                 <th>Anggaran Tersedia</th>
                                                 <th>Ket</th>
                                                 <th>Jenis</th>
@@ -71,9 +70,11 @@
                                         <tbody>
                                             @forelse ($danas as $dana)
                                                 <tr @if(!$dana->available) style="color: #999;" @endif>
-                                                    <td>{{ $dana->kegiatan->desk_kegiatan ?? '-' }}</td>
+
                                                     <td><strong>{{ $dana->subkegiatan->desk_subkegiatan ?? '-' }}</strong></td>
-                                                    <td>{{ $dana->sumberdana->sumber_dana ?? '-' }}</td>
+
+                                                    <td>{{ $dana->rekbelanja->desk_belanja ?? '-' }}</td> {{-- Kolom isi baru --}}
+
                                                     <td>Rp{{ number_format($dana->jumlah_dana, 0, ',', '.') }}</td>
                                                     <td>{{ $dana->ket ?? '-' }}</td>
                                                     <td>
@@ -88,14 +89,12 @@
                                                     <td>
                                                         <div class="d-flex justify-content-center">
                                                             @if($dana->available)
-                                                                {{-- Tombol Edit: hanya tampil jika bukan pergeseran --}}
                                                                 @if(!$dana->dana_asal_id)
                                                                     <a href="{{ route('danas.edit', $dana->id) }}" class="btn btn-sm btn-primary btn-icon ml-1">
                                                                         <i class="fas fa-edit"></i> Edit
                                                                     </a>
                                                                 @endif
 
-                                                                {{-- Tombol Pergeseran --}}
                                                                 <button type="button"
                                                                     class="btn btn-sm btn-warning btn-icon ml-1 btn-pergeseran"
                                                                     data-dana-id="{{ $dana->id }}"
@@ -103,17 +102,18 @@
                                                                     data-kegiatan-id="{{ $dana->kegiatan->id }}"
                                                                     data-organisasi-id="{{ $dana->organisasi->id }}"
                                                                     data-sumberdana-id="{{ $dana->sumberdana->id }}"
+                                                                    data-rekbelanja-id="{{ $dana->rekbelanja->id ?? '' }}" {{-- tambahan --}}
                                                                     data-jumlah-dana="{{ $dana->jumlah_dana }}"
                                                                     data-program="{{ $dana->program->desk_program }}"
                                                                     data-kegiatan="{{ $dana->kegiatan->desk_kegiatan }}"
                                                                     data-organisasi="{{ $dana->organisasi->desk_organisasi }}"
                                                                     data-sumberdana="{{ $dana->sumberdana->sumber_dana }}"
                                                                     data-subkegiatan="{{ $dana->subkegiatan->desk_subkegiatan ?? 'Subkegiatan Tidak Diketahui' }}"
-                                                                    >
+                                                                    data-rekbelanja="{{ $dana->rekbelanja->desk_belanja ?? 'Tidak Diketahui' }}" {{-- tambahan --}}
+                                                                >
                                                                     <i class="fas fa-random"></i> Pergeseran
                                                                 </button>
 
-                                                                {{-- Tombol Hapus --}}
                                                                 <button type="button" class="btn btn-sm btn-danger btn-icon confirm-delete ml-1"
                                                                     data-delete-url="{{ route('danas.destroy', $dana->id) }}">
                                                                     <i class="fas fa-times"></i> Hapus
@@ -122,7 +122,6 @@
                                                         </div>
                                                     </td>
                                                 </tr>
-
                                             @empty
                                                 <tr>
                                                     <td colspan="8" class="text-center">Tidak ada data dana.</td>
@@ -131,6 +130,7 @@
                                         </tbody>
                                     </table>
                                 </div>
+
 
                                 <div class="float-right">
                                     {{ $danas->withQueryString()->links() }}

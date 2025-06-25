@@ -80,15 +80,15 @@
     <table>
         <thead>
             <tr>
-                <th>Kode</th>
-                <th>Subkegiatan</th>
+                <th>Sub Kegiatan</th>
+                <th>Desk Belanja</th>
                 <th>Total Anggaran</th>
                 <th>Sisa Anggaran</th>
                 <th>Realisasi</th>
                 <th>No. Bukti</th>
                 <th>Tgl Bukti</th>
                 <th>Uraian</th>
-                <th>Jenis Belanja</th> <!-- Tambahkan ini -->
+                <th>Jenis Belanja</th>
                 <th>Jumlah Pemakaian</th>
             </tr>
         </thead>
@@ -98,69 +98,92 @@
                 $grandTotalAnggaran = 0;
                 $grandSisaAnggaran = 0;
                 $grandRealisasi = 0;
+
+                $groupedBySub = $danas->groupBy(fn($item) => $item->subkegiatan->desk_subkegiatan ?? '-');
             @endphp
 
-            @foreach ($danas as $dana)
+            @foreach ($groupedBySub as $subkegiatan => $danasPerSub)
                 @php
-                    $totalPemakaian = $dana->pemakaianDanas->sum('jumlah_pemakaian');
-                    $totalAnggaran = $dana->jumlah_dana + $totalPemakaian;
-                    $sisaAnggaran = $totalAnggaran - $totalPemakaian;
-                    $persen = $totalAnggaran > 0 ? ($totalPemakaian / $totalAnggaran) * 100 : 0;
-
-                    $grandTotalAnggaran += $totalAnggaran;
-                    $grandSisaAnggaran += $sisaAnggaran;
-                    $grandRealisasi += $totalPemakaian;
+                    $totalRowsSub = 0;
+                    foreach ($danasPerSub as $dana) {
+                        $totalRowsSub += max($dana->pemakaianDanas->count(), 1);
+                    }
                 @endphp
 
-                @if ($dana->pemakaianDanas->isEmpty())
-                    {{-- Kalau belum ada pemakaian --}}
-                    <tr>
-                        <td>{{ $dana->subkegiatan->kode_subkegiatan ?? '-' }}</td>
-                        <td>{{ $dana->subkegiatan->desk_subkegiatan ?? '-' }}</td>
-                        <td>Rp{{ number_format($totalAnggaran, 0, ',', '.') }}</td>
-                        <td>Rp{{ number_format($sisaAnggaran, 0, ',', '.') }}</td>
-                        <td>Rp0<br><small>(0%)</small></td>
-                        <td colspan="5">-</td> <!-- Ubah colspan jadi 5 karena nambah kolom baru -->
-                    </tr>
-                @else
-                    {{-- Kalau ada pemakaian --}}
-                    @foreach ($dana->pemakaianDanas as $pemakaian)
+                @php $printedSub = false; @endphp
+                @foreach ($danasPerSub as $dana)
+                    @php
+                        $pemakaians = $dana->pemakaianDanas;
+                        $rowspanBelanja = max($pemakaians->count(), 1);
+
+                        $totalPemakaian = $pemakaians->sum('jumlah_pemakaian');
+                        $totalAnggaran = $dana->jumlah_dana + $totalPemakaian;
+                        $sisaAnggaran = $totalAnggaran - $totalPemakaian;
+                        $persen = $totalAnggaran > 0 ? ($totalPemakaian / $totalAnggaran) * 100 : 0;
+
+                        $deskBelanja = $dana->rekbelanja->desk_belanja ?? '-';
+
+                        $grandTotalAnggaran += $totalAnggaran;
+                        $grandSisaAnggaran += $sisaAnggaran;
+                        $grandRealisasi += $totalPemakaian;
+                    @endphp
+
+                    @if ($pemakaians->isEmpty())
                         <tr>
-                            <td>{{ $dana->subkegiatan->kode_subkegiatan ?? '-' }}</td>
-                            <td>{{ $dana->subkegiatan->desk_subkegiatan ?? '-' }}</td>
+                            @if (!$printedSub)
+                                <td rowspan="{{ $totalRowsSub }}">{{ $subkegiatan }}</td>
+                                @php $printedSub = true; @endphp
+                            @endif
+                            <td>{{ $deskBelanja }}</td>
                             <td>Rp{{ number_format($totalAnggaran, 0, ',', '.') }}</td>
                             <td>Rp{{ number_format($sisaAnggaran, 0, ',', '.') }}</td>
-                            <td>
-                                Rp{{ number_format($totalPemakaian, 0, ',', '.') }}<br>
-                                <small>({{ number_format($persen, 2) }}%)</small>
-                            </td>
-                            <td style="word-break: break-word; white-space: normal;">{{ $pemakaian->no_bukti }}</td>
-                            <td>{{ \Carbon\Carbon::parse($pemakaian->tgl_bukti)->format('d-m-Y') }}</td>
-                            <td>{{ $pemakaian->uraian }}</td>
-                            <td>{{ $pemakaian->jenis_belanja ?? '-' }}</td> <!-- Kolom baru jenis belanja -->
-                            <td>Rp{{ number_format($pemakaian->jumlah_pemakaian, 0, ',', '.') }}</td>
+                            <td>Rp0<br><small>(0%)</small></td>
+                            <td colspan="5">-</td>
                         </tr>
-                    @endforeach
-                @endif
+                    @else
+                        @foreach ($pemakaians as $index => $p)
+                            <tr>
+                                @if (!$printedSub)
+                                    <td rowspan="{{ $totalRowsSub }}">{{ $subkegiatan }}</td>
+                                    @php $printedSub = true; @endphp
+                                @endif
+
+                                @if ($index == 0)
+                                    <td rowspan="{{ $rowspanBelanja }}">{{ $deskBelanja }}</td>
+                                    <td rowspan="{{ $rowspanBelanja }}">Rp{{ number_format($totalAnggaran, 0, ',', '.') }}</td>
+                                    <td rowspan="{{ $rowspanBelanja }}">Rp{{ number_format($sisaAnggaran, 0, ',', '.') }}</td>
+                                    <td rowspan="{{ $rowspanBelanja }}">
+                                        Rp{{ number_format($totalPemakaian, 0, ',', '.') }}<br>
+                                        <small>({{ number_format($persen, 2) }}%)</small>
+                                    </td>
+                                @endif
+
+                                <td>{{ $p->no_bukti }}</td>
+                                <td>{{ \Carbon\Carbon::parse($p->tgl_bukti)->format('d-m-Y') }}</td>
+                                <td>{{ $p->uraian }}</td>
+                                <td>{{ $p->jenis_belanja ?? '-' }}</td>
+                                <td>Rp{{ number_format($p->jumlah_pemakaian, 0, ',', '.') }}</td>
+                            </tr>
+                        @endforeach
+                    @endif
+                @endforeach
             @endforeach
 
-            {{-- Baris Total --}}
-            @php
-                $persenTotal = $grandTotalAnggaran > 0 ? ($grandRealisasi / $grandTotalAnggaran) * 100 : 0;
-            @endphp
+            {{-- Footer Total --}}
             <tr style="background: #e0e0e0; font-weight: bold;">
                 <td colspan="2">TOTAL</td>
                 <td>Rp{{ number_format($grandTotalAnggaran, 0, ',', '.') }}</td>
                 <td>Rp{{ number_format($grandSisaAnggaran, 0, ',', '.') }}</td>
                 <td>
                     Rp{{ number_format($grandRealisasi, 0, ',', '.') }}<br>
-                    <small>({{ number_format($persenTotal, 2) }}%)</small>
+                    <small>({{ number_format(($grandRealisasi / $grandTotalAnggaran) * 100, 2) }}%)</small>
                 </td>
-                <td colspan="5"></td> <!-- Ubah colspan jadi 5 supaya rapih -->
+                <td colspan="5"></td>
             </tr>
-        </tbody>
 
+        </tbody>
     </table>
+
 
 
     <div class="keterangan-table">
@@ -200,9 +223,8 @@
                 </tr>
             </tbody>
         </table>
-
-
     </div>
+
 
     <div class="ttd">
         <p>Boroko, {{ \Carbon\Carbon::now()->translatedFormat('d F Y') }}</p>

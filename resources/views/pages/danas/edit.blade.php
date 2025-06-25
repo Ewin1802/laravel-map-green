@@ -89,6 +89,20 @@
                             </select>
                         </div>
 
+                        <!-- Rekening Belanja -->
+                        <div class="form-group">
+                            <label>Rekening Belanja</label>
+                            <select name="rekbelanja_id" class="form-control select2" required>
+                                <option value="">Pilih Rekening Belanja</option>
+                                @foreach ($rekbelanjas as $item)
+                                    <option value="{{ $item->id }}" {{ $dana->rekbelanja_id == $item->id ? 'selected' : '' }}>
+                                        {{ $item->kode_rek }} - {{ $item->desk_belanja }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+
+
                         <!-- Jumlah Dana -->
                         <div class="form-group">
                             <label>Jumlah Dana</label>

@@ -45,8 +45,9 @@
                                         data-jumlah="{{ $dana->jumlah_dana }}"
                                         data-desk="{{ $dana->rekbelanja->desk_belanja ?? '' }}"
                                         data-jenis="{{ $dana->rekbelanja->jenis_belanja ?? '' }}">
-                                        {{ $dana->kegiatan->desk_kegiatan ?? 'N/A' }}
-                                        - {{ $dana->subkegiatan->desk_subkegiatan ?? '' }}
+                                        {{ $dana->subkegiatan->desk_subkegiatan ?? '-' }}
+                                        - {{ $dana->rekbelanja->desk_belanja ?? '-' }}
+                                        - Rp{{ number_format($dana->jumlah_dana, 0, ',', '.') }}
                                     </option>
                                 @endforeach
                             </select>
@@ -63,16 +64,7 @@
                         {{-- Deskripsi Belanja --}}
                         <div class="form-group">
                             <label>Deskripsi Belanja</label>
-                            <select name="desk_belanja" id="deskBelanjaSelect" class="form-control select2 @error('desk_belanja') is-invalid @enderror">
-                                <option value="">-- Pilih Deskripsi Belanja --</option>
-                                @foreach($rekbelanjas as $rek)
-                                    <option value="{{ $rek->desk_belanja }}"
-                                        data-jenis="{{ $rek->jenis_belanja }}"
-                                        {{ old('desk_belanja', $pemakaianDana->desk_belanja ?? '') == $rek->desk_belanja ? 'selected' : '' }}>
-                                        {{ $rek->desk_belanja }}
-                                    </option>
-                                @endforeach
-                            </select>
+                            <input type="text" name="desk_belanja" id="deskBelanja" class="form-control @error('desk_belanja') is-invalid @enderror" readonly>
                             @error('desk_belanja')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
@@ -149,17 +141,23 @@
     $(document).ready(function () {
         $('.select2').select2();
 
+        // Saat pilihan dana berubah
         $('#danaSelect').on('change', function () {
             const selected = $(this).find(':selected');
+
             const jumlah = selected.data('jumlah');
             const desk = selected.data('desk');
             const jenis = selected.data('jenis');
 
+            // Tampilkan jumlah dana
             $('#jumlahDanaDisplay').val(jumlah ? 'Rp ' + parseInt(jumlah).toLocaleString('id-ID') : '');
+
+            // Isi deskripsi dan jenis belanja secara otomatis (dan readonly)
             $('#deskBelanja').val(desk || '');
             $('#jenisBelanja').val(jenis || '');
         });
 
+        // Format input jumlah pemakaian
         $('#jumlahPemakaianFormatted').on('input', function () {
             let value = $(this).val().replace(/[^\d]/g, '');
             let formatted = new Intl.NumberFormat('id-ID').format(value);
@@ -168,16 +166,5 @@
         });
     });
 </script>
-
-<script>
-    $(document).ready(function () {
-        $('.select2').select2();
-
-        // Jika deskripsi belanja dipilih, isi jenis belanja otomatis
-        $('#deskBelanjaSelect').on('change', function () {
-            const jenis = $(this).find(':selected').data('jenis') || '';
-            $('#jenisBelanja').val(jenis);
-        });
-    });
-</script>
 @endpush
+
