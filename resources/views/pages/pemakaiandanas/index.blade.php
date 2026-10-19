@@ -43,7 +43,7 @@
                                 <div class="float-right">
                                     <form method="GET" action="{{ route('pemakaiandanas.index') }}">
                                         <div class="input-group">
-                                            <input type="text" class="form-control" placeholder="Cari No. Bukti / Subkegiatan" name="search">
+                                            <input type="text" class="form-control" placeholder="Cari No. Bukti / Subkegiatan / Nama / No. Surat Tugas" name="search">
                                             <div class="input-group-append">
                                                 <button class="btn btn-primary"><i class="fas fa-search"></i></button>
                                             </div>
@@ -75,7 +75,14 @@
                                                     <td>{{ \Carbon\Carbon::parse($pemakaian->tgl_bukti)->format('d-m-Y') }}</td>
                                                     <td>{{ $pemakaian->dana->subkegiatan->desk_subkegiatan ?? '-' }}</td>
                                                     <td>{{ $pemakaian->desk_belanja ?? '-' }}</td> {{-- Ganti dari jenis belanja --}}
-                                                    <td>{{ $pemakaian->uraian }}</td>
+                                                    <td>
+                                                        {{ $pemakaian->suratTugas->uraian ?? $pemakaian->uraian }}
+                                                        @if ($pemakaian->suratTugas)
+                                                            <br><span class="badge badge-light">SPPD</span>
+                                                            <small><strong>{{ $pemakaian->nama_pelaksana }}</strong></small>
+                                                            <br><small class="text-muted">ST: {{ $pemakaian->suratTugas->nomor_surat ?: '-' }}</small>
+                                                        @endif
+                                                    </td>
                                                     <td>Rp{{ number_format($pemakaian->jumlah_pemakaian, 0, ',', '.') }}</td>
                                                     <td>
                                                         @if ($pemakaian->file_bukti)

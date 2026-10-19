@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\PemakaianDana;
 use App\Models\Dana;
 use App\Models\Rekbelanja;
+use App\Models\SuratTugas;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -20,16 +22,21 @@ class PemakaianDanaController extends Controller
         $tahun = session('tahun');
         $search = $request->search;
 
-        $pemakaians = PemakaianDana::with(['dana.subkegiatan'])
+        $pemakaians = PemakaianDana::with(['dana.subkegiatan', 'suratTugas'])
             ->whereYear('tgl_bukti', $tahun)
             ->when($search, function ($query) use ($search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('no_bukti', 'like', '%' . $search . '%')
+                    ->orWhere('nama_pelaksana', 'like', '%' . $search . '%')
+                    ->orWhereHas('suratTugas', function ($q2) use ($search) {
+                        $q2->where('nomor_surat', 'like', '%' . $search . '%');
+                    })
                     ->orWhereHas('dana.subkegiatan', function ($q2) use ($search) {
                         $q2->where('desk_subkegiatan', 'like', '%' . $search . '%');
                     });
                 });
             })
+            ->orderBy('id')
             ->paginate(10);
 
         return view('pages.pemakaiandanas.index', compact('pemakaians'));
@@ -48,7 +55,7 @@ class PemakaianDanaController extends Controller
 
     public function edit($id)
     {
-        $pemakaianDana = PemakaianDana::findOrFail($id);
+        $pemakaianDana = PemakaianDana::with('suratTugas.pelaksana')->findOrFail($id);
         $dana = Dana::findOrFail($pemakaianDana->dana_id);
 
         $totalPemakaianLain = PemakaianDana::where('dana_id', $dana->id)
@@ -67,7 +74,10 @@ class PemakaianDanaController extends Controller
 
     public function update(Request $request, $id)
     {
-        $request->validate([
+        $pemakaianDana = PemakaianDana::with('suratTugas')->findOrFail($id);
+        $suratTugas = $pemakaianDana->suratTugas;
+
+        $rules = [
             'uraian' => 'required|string|max:255',
             // 'no_bukti' => 'required|string|max:100',
             'jumlah_pemakaian' => 'required|string',
@@ -75,9 +85,13 @@ class PemakaianDanaController extends Controller
             'file_bukti' => 'nullable|file|mimes:pdf|max:10240',
             'desk_belanja' => 'required|string',
             'jenis_belanja' => 'required|string',
-        ]);
+        ];
+        if ($suratTugas) {
+            $rules['nama_pelaksana'] = 'required|string|max:255';
+            $rules['nomor_surat'] = 'nullable|string|max:255';
+        }
+        $request->validate($rules);
 
-        $pemakaianDana = PemakaianDana::findOrFail($id);
         $dana = Dana::findOrFail($pemakaianDana->dana_id);
 
         $jumlahBaru = (int) str_replace('.', '', $request->jumlah_pemakaian);
@@ -92,32 +106,70 @@ class PemakaianDanaController extends Controller
             return back()->withErrors(['jumlah_pemakaian' => 'Jumlah pemakaian melebihi anggaran tersedia.'])->withInput();
         }
 
-        if ($request->hasFile('file_bukti')) {
-            if ($pemakaianDana->file_bukti && Storage::exists($pemakaianDana->file_bukti)) {
-                Storage::delete($pemakaianDana->file_bukti);
-            }
-            $path = $request->file('file_bukti')->store('bukti_dana');
-            $pemakaianDana->file_bukti = $path;
-        }
-
         $user = Auth::user();
 
-        $pemakaianDana->uraian = $request->uraian;
-        $pemakaianDana->no_bukti = $request->no_bukti;
-        $pemakaianDana->jumlah_pemakaian = $jumlahBaru;
-        $pemakaianDana->tgl_bukti = $request->tgl_bukti;
-        $pemakaianDana->desk_belanja = $request->desk_belanja;
-        $pemakaianDana->jenis_belanja = $request->jenis_belanja;
-        $pemakaianDana->user_name = $user->name;
-        $pemakaianDana->user_unit = $user->unit;
-        $pemakaianDana->thn_anggaran = now()->year;
-        $pemakaianDana->save();
+        DB::transaction(function () use ($request, $pemakaianDana, $suratTugas, $jumlahBaru, $user) {
+            $fileLama = $pemakaianDana->file_bukti;
+            $fileBaru = null;
+
+            if ($request->hasFile('file_bukti')) {
+                $fileBaru = $this->simpanPdf($request->file('file_bukti'), $request->uraian);
+                $pemakaianDana->file_bukti = $fileBaru;
+            }
+
+            $pemakaianDana->no_bukti = $request->no_bukti;
+            $pemakaianDana->jumlah_pemakaian = $jumlahBaru;
+            $pemakaianDana->tgl_bukti = $request->tgl_bukti;
+            $pemakaianDana->desk_belanja = $request->desk_belanja;
+            $pemakaianDana->jenis_belanja = $request->jenis_belanja;
+            $pemakaianDana->user_name = $user->name;
+            $pemakaianDana->user_unit = $user->unit;
+            $pemakaianDana->thn_anggaran = now()->year;
+
+            if ($suratTugas) {
+                // Data bersama (tanggal, no bukti, nomor & file surat tugas, uraian kegiatan)
+                // diperbarui sekali dan berlaku untuk semua pelaksana di surat tugas ini.
+                $suratTugas->uraian = $request->uraian;
+                $suratTugas->nomor_surat = $request->nomor_surat;
+                $suratTugas->no_bukti = $request->no_bukti;
+                $suratTugas->tgl_bukti = $request->tgl_bukti;
+                if ($fileBaru) {
+                    $suratTugas->file_surat = $fileBaru;
+                }
+                $suratTugas->save();
+
+                $pemakaianDana->nama_pelaksana = $request->nama_pelaksana;
+                $pemakaianDana->uraian = $this->uraianPelaksana($request->uraian, $request->nama_pelaksana);
+                $pemakaianDana->save();
+
+                foreach ($suratTugas->pelaksana()->where('id', '!=', $pemakaianDana->id)->get() as $lain) {
+                    $lain->no_bukti = $request->no_bukti;
+                    $lain->tgl_bukti = $request->tgl_bukti;
+                    $lain->uraian = $this->uraianPelaksana($request->uraian, $lain->nama_pelaksana);
+                    if ($fileBaru) {
+                        $lain->file_bukti = $fileBaru;
+                    }
+                    $lain->save();
+                }
+            } else {
+                $pemakaianDana->uraian = $request->uraian;
+                $pemakaianDana->save();
+            }
+
+            if ($fileBaru && $fileLama) {
+                $this->hapusFileJikaTidakDipakai($fileLama);
+            }
+        });
 
         return redirect()->route('pemakaiandanas.index')->with('success', 'Data pemakaian dana berhasil diperbarui.');
     }
 
     public function store(Request $request)
     {
+        if ($request->input('mode') === 'sppd') {
+            return $this->storeSppd($request);
+        }
+
         try {
             \Log::info('Data pemakaian dana diterima:', $request->all());
 
@@ -143,13 +195,7 @@ class PemakaianDanaController extends Controller
 
             $filePath = null;
             if ($request->hasFile('file_bukti')) {
-                $file = $request->file('file_bukti');
-                $uraianSlug = Str::slug($request->uraian, '-');
-                $timestamp = now()->format('YmdHi');
-                $filename = $uraianSlug . '-' . $timestamp . '.' . $file->getClientOriginalExtension();
-
-                $storedPath = $file->storeAs('public/bukti-pdf', $filename);
-                $filePath = str_replace('public/', '', $storedPath);
+                $filePath = $this->simpanPdf($request->file('file_bukti'), $request->uraian);
             }
 
             $pemakaian = PemakaianDana::create([
@@ -178,6 +224,8 @@ class PemakaianDanaController extends Controller
             ]);
 
             return redirect()->route('pemakaiandanas.index')->with('success', 'Data pemakaian dana berhasil disimpan.');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             \Log::error('Terjadi kesalahan saat menyimpan pemakaian dana:', [
                 'error' => $e->getMessage(),
@@ -186,6 +234,114 @@ class PemakaianDanaController extends Controller
             ]);
             return redirect()->back()->with('error', 'Terjadi kesalahan saat menyimpan data.')->withInput();
         }
+    }
+
+    /**
+     * SPPD dengan beberapa pelaksana: tanggal, nomor & file surat tugas diinput sekali,
+     * lalu dibuat satu baris realisasi per pelaksana.
+     */
+    protected function storeSppd(Request $request)
+    {
+        // Ubah "1.500.000" -> 1500000 sebelum validasi
+        $pelaksana = collect($request->input('pelaksana', []))
+            ->map(function ($p) {
+                return [
+                    'nama' => trim($p['nama'] ?? ''),
+                    'jumlah' => preg_replace('/[^\d]/', '', (string) ($p['jumlah'] ?? '')),
+                ];
+            })
+            ->filter(fn ($p) => $p['nama'] !== '' || $p['jumlah'] !== '')
+            ->values()
+            ->all();
+        $request->merge(['pelaksana' => $pelaksana]);
+
+        $request->validate([
+            'dana_id' => 'required|exists:danas,id',
+            'uraian' => 'required|string|max:255',
+            'nomor_surat' => 'required|string|max:255',
+            'tgl_bukti' => 'required|date',
+            'file_bukti' => 'nullable|file|mimes:pdf|max:10240',
+            'desk_belanja' => 'required|string',
+            'jenis_belanja' => 'required|string',
+            'pelaksana' => 'required|array|min:1',
+            'pelaksana.*.nama' => 'required|string|max:255',
+            'pelaksana.*.jumlah' => 'required|numeric|min:1',
+        ], [
+            'nomor_surat.required' => 'Nomor surat tugas wajib diisi.',
+            'pelaksana.required' => 'Tambahkan minimal satu pelaksana.',
+            'pelaksana.*.nama.required' => 'Nama pelaksana wajib diisi.',
+            'pelaksana.*.jumlah.required' => 'Biaya pelaksana wajib diisi.',
+            'pelaksana.*.jumlah.min' => 'Biaya pelaksana harus lebih dari 0.',
+        ]);
+
+        \Log::info('Data SPPD kolektif diterima:', $request->except('file_bukti'));
+
+        $user = Auth::user();
+        $dana = Dana::findOrFail($request->dana_id);
+        $total = array_sum(array_map(fn ($p) => (int) $p['jumlah'], $pelaksana));
+
+        if ($total > $dana->jumlah_dana) {
+            return back()->with('error', 'Total biaya seluruh pelaksana (Rp' . number_format($total, 0, ',', '.') .
+                ') melebihi dana yang tersedia (Rp' . number_format($dana->jumlah_dana, 0, ',', '.') . ').')->withInput();
+        }
+
+        $filePath = null;
+        try {
+            if ($request->hasFile('file_bukti')) {
+                $filePath = $this->simpanPdf($request->file('file_bukti'), $request->uraian);
+            }
+
+            DB::transaction(function () use ($request, $pelaksana, $user, $dana, $total, $filePath) {
+                $surat = SuratTugas::create([
+                    'dana_id' => $dana->id,
+                    'nomor_surat' => $request->nomor_surat,
+                    'uraian' => $request->uraian,
+                    'no_bukti' => $request->no_bukti,
+                    'tgl_bukti' => $request->tgl_bukti,
+                    'file_surat' => $filePath,
+                    'user_name' => $user->name,
+                    'user_unit' => $user->unit,
+                    'thn_anggaran' => now()->year,
+                ]);
+
+                foreach ($pelaksana as $p) {
+                    PemakaianDana::create([
+                        'dana_id' => $dana->id,
+                        'surat_tugas_id' => $surat->id,
+                        'uraian' => $this->uraianPelaksana($request->uraian, $p['nama']),
+                        'nama_pelaksana' => $p['nama'],
+                        'no_bukti' => $request->no_bukti,
+                        'jumlah_pemakaian' => (int) $p['jumlah'],
+                        'file_bukti' => $filePath,
+                        'tgl_bukti' => $request->tgl_bukti,
+                        'desk_belanja' => $request->desk_belanja,
+                        'jenis_belanja' => $request->jenis_belanja,
+                        'user_name' => $user->name,
+                        'user_unit' => $user->unit,
+                        'thn_anggaran' => now()->year,
+                    ]);
+                }
+
+                $dana->jumlah_dana -= $total;
+                if ($dana->jumlah_dana <= 0) {
+                    $dana->available = 0;
+                }
+                $dana->save();
+            });
+        } catch (\Exception $e) {
+            if ($filePath) {
+                Storage::disk('public')->delete($filePath);
+            }
+            \Log::error('Terjadi kesalahan saat menyimpan SPPD kolektif:', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+            return redirect()->back()->with('error', 'Terjadi kesalahan saat menyimpan data SPPD.')->withInput();
+        }
+
+        return redirect()->route('pemakaiandanas.index')
+            ->with('success', 'SPPD berhasil disimpan untuk ' . count($pelaksana) . ' pelaksana.');
     }
 
     public function destroy($id)
@@ -201,16 +357,50 @@ class PemakaianDanaController extends Controller
             $dana->save();
         }
 
-        // Hapus file bukti jika ada
-        if ($pemakaian->file_bukti) {
-            Storage::disk('public')->delete($pemakaian->file_bukti);
-        }
+        $file = $pemakaian->file_bukti;
+        $suratTugasId = $pemakaian->surat_tugas_id;
 
         // Hapus data pemakaian
         $pemakaian->delete();
 
+        // Hapus surat tugas jika sudah tidak ada pelaksana lagi
+        if ($suratTugasId && !PemakaianDana::where('surat_tugas_id', $suratTugasId)->exists()) {
+            SuratTugas::where('id', $suratTugasId)->delete();
+        }
+
+        // Hapus file bukti hanya jika tidak dipakai pelaksana lain (surat tugas bersama)
+        if ($file) {
+            $this->hapusFileJikaTidakDipakai($file);
+        }
+
         return redirect()->route('pemakaiandanas.index')->with('success', 'Kegiatan ini berhasil dihapus, Dana telah dikembalikan.');
     }
 
-}
+    // ---------------------------------------------------------------------
 
+    protected function simpanPdf($file, $uraian)
+    {
+        $uraianSlug = Str::slug($uraian, '-');
+        $timestamp = now()->format('YmdHi');
+        $filename = $uraianSlug . '-' . $timestamp . '-' . Str::random(4) . '.' . $file->getClientOriginalExtension();
+
+        $storedPath = $file->storeAs('public/bukti-pdf', $filename);
+        return str_replace('public/', '', $storedPath);
+    }
+
+    protected function hapusFileJikaTidakDipakai($path)
+    {
+        $masihDipakai = PemakaianDana::where('file_bukti', $path)->exists()
+            || SuratTugas::where('file_surat', $path)->exists();
+
+        if (!$masihDipakai) {
+            Storage::disk('public')->delete($path);
+        }
+    }
+
+    protected function uraianPelaksana($uraian, $nama)
+    {
+        return Str::limit($uraian . ' - a.n. ' . $nama, 255, '');
+    }
+
+}

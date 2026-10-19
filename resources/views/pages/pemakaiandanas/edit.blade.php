@@ -80,10 +80,40 @@
 
 
 
+                        @php $st = $pemakaianDana->suratTugas; @endphp
+
+                        @if ($st)
+                            <div class="alert alert-info">
+                                Data ini bagian dari <strong>SPPD / Surat Tugas {{ $st->nomor_surat ?: '-' }}</strong>
+                                dengan {{ $st->pelaksana->count() }} pelaksana:
+                                {{ $st->pelaksana->pluck('nama_pelaksana')->implode(', ') }}.<br>
+                                Perubahan <strong>uraian kegiatan, no bukti, nomor surat tugas, tanggal, dan file surat tugas</strong>
+                                otomatis berlaku untuk semua pelaksana tersebut.
+                            </div>
+
+                            <div class="form-group">
+                                <label>Nama Pelaksana</label>
+                                <input type="text" name="nama_pelaksana" class="form-control @error('nama_pelaksana') is-invalid @enderror"
+                                    value="{{ old('nama_pelaksana', $pemakaianDana->nama_pelaksana) }}" required>
+                                @error('nama_pelaksana')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <div class="form-group">
+                                <label>Nomor Surat Tugas</label>
+                                <input type="text" name="nomor_surat" class="form-control @error('nomor_surat') is-invalid @enderror"
+                                    value="{{ old('nomor_surat', $st->nomor_surat) }}">
+                                @error('nomor_surat')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+                        @endif
+
                         <div class="form-group">
-                            <label>Uraian (Keterangan terkait Realisasi Anggaran digunakan untuk apa)</label>
+                            <label>{{ $st ? 'Uraian Kegiatan Perjalanan Dinas' : 'Uraian (Keterangan terkait Realisasi Anggaran digunakan untuk apa)' }}</label>
                             <input type="text" name="uraian" class="form-control @error('uraian') is-invalid @enderror"
-                                value="{{ old('uraian', $pemakaianDana->uraian) }}" required>
+                                value="{{ old('uraian', $st ? $st->uraian : $pemakaianDana->uraian) }}" required>
                             @error('uraian')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
@@ -115,7 +145,7 @@
                         </div>
 
                         <div class="form-group">
-                            <label>Tanggal Bukti</label>
+                            <label>{{ $st ? 'Tanggal Surat Tugas / Bukti' : 'Tanggal Bukti' }}</label>
                             <input type="date" name="tgl_bukti" class="form-control @error('tgl_bukti') is-invalid @enderror"
                                 value="{{ old('tgl_bukti', \Carbon\Carbon::parse($pemakaianDana->tgl_bukti)->format('Y-m-d')) }}"
                                 required>
@@ -125,7 +155,7 @@
                         </div>
 
                         <div class="form-group">
-                            <label>File Bukti (PDF)</label>
+                            <label>{{ $st ? 'File Surat Tugas (PDF)' : 'File Bukti (PDF)' }}</label>
                             <input type="file" name="file_bukti" accept="application/pdf" class="form-control-file @error('file_bukti') is-invalid @enderror">
                             @if($pemakaianDana->file_bukti)
                                 <p class="mt-2">File saat ini: <a href="{{ asset('storage/' . $pemakaianDana->file_bukti) }}" target="_blank">Lihat File</a></p>

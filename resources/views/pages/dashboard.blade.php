@@ -199,22 +199,22 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-    const loading = document.getElementById('loadingIndicator').remove();
-    const wrapper = document.getElementById('tabelWrapper');
+        const loading = document.getElementById('loadingIndicator');
+        const wrapper = document.getElementById('tabelWrapper');
 
-    setTimeout(() => {
-        if (loading) {
-            loading.classList.add('hidden'); // ini penting
-            console.log('✅ Loading disembunyikan');
-        }
-        if (wrapper) {
-            wrapper.style.display = 'block';
-            console.log('✅ Konten ditampilkan');
-        }
-    }, 500);
-});
-
+        setTimeout(() => {
+            if (loading) {
+                loading.parentNode.removeChild(loading); // 🔹 Hapus elemen dari DOM
+                console.log('✅ Loading overlay dihapus');
+            }
+            if (wrapper) {
+                wrapper.style.display = 'block';
+                console.log('✅ Konten ditampilkan');
+            }
+        }, 500);
+    });
 </script>
+
 
 
 

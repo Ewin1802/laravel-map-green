@@ -37,13 +37,7 @@ class SumberdanaController extends Controller
         return redirect()->route('sumberdanas.index')->with('success', 'Sumber Dana created successfully.');
     }
 
-    // Show: Menampilkan detail sumber dana
-    public function show($id)
-    {
-        $sumberdana = Sumberdana::findOrFail($id);
-        return view('pages.sumberdanas.show', compact('sumberdana'));
-    }
-
+   
     // Edit: Menampilkan form edit sumber dana
     public function edit($id)
     {
